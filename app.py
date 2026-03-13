@@ -114,7 +114,7 @@ st.markdown("""
 
 # --- 3. SECRETS & SIDEBAR ---
 # Paste your Gemini API Key directly below between the quotes:
-API_KEY = "YOUR_API_KEY_HERE"
+API_KEY = "YAIzaSyBb_Ej9vZyKLGhadRNIpaukKazey7lcd7Q"
 
 with st.sidebar:
     st.markdown("<h2 style='font-weight: 700; color: #1b5e20;'>🌳 PCA Vault</h2>", unsafe_allow_html=True)
