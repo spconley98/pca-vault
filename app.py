@@ -113,15 +113,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- 3. SECRETS & SIDEBAR ---
-# Silently load the API Key from Streamlit Secrets or local Environment Variables
-API_KEY = None
-try:
-    API_KEY = st.secrets.get("GEMINI_API_KEY")
-except:
-    pass
-
-if not API_KEY:
-    API_KEY = os.environ.get("GEMINI_API_KEY")
+# Paste your Gemini API Key directly below between the quotes:
+API_KEY = "YOUR_API_KEY_HERE"
 
 with st.sidebar:
     st.markdown("<h2 style='font-weight: 700; color: #1b5e20;'>🌳 PCA Vault</h2>", unsafe_allow_html=True)
@@ -133,16 +126,13 @@ with st.sidebar:
     st.button("🔗 Integrations", use_container_width=True)
     
     st.markdown("---")
-    st.markdown("**📁 Folders**")
-    st.button("🌱 Spring Scouting", use_container_width=True)
-    st.button("💧 Nutrient Reports", use_container_width=True)
 
-    # Fallback to manual input if no secret is found
-    if not API_KEY:
-        st.warning("Key not found in `.streamlit/secrets.toml`.")
+    # Fallback to manual input if hardcoded key is not provided
+    if API_KEY == "YOUR_API_KEY_HERE" or not API_KEY:
+        st.warning("API Key not hardcoded in app.py.")
         API_KEY = st.text_input("Gemini API Key", type="password")
     
-    if API_KEY:
+    if API_KEY and API_KEY != "YOUR_API_KEY_HERE":
         genai.configure(api_key=API_KEY)
 
 # Initialize Session States
