@@ -6,6 +6,26 @@ import tempfile
 import os
 import json
 import time
+import datetime
+
+def create_ics(title, time_str):
+    now = datetime.datetime.now()
+    dtstamp = now.strftime('%Y%m%dT%H%M%SZ')
+    dtstart = now.strftime('%Y%m%dT%H%M%SZ')
+    dtend = (now + datetime.timedelta(hours=1)).strftime('%Y%m%dT%H%M%SZ')
+    
+    return f"""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//PCA Smart Vault//EN
+BEGIN:VEVENT
+UID:{dtstamp}-{id(title)}@pcasmartvault.com
+DTSTAMP:{dtstamp}
+DTSTART:{dtstart}
+DTEND:{dtend}
+SUMMARY:{title}
+DESCRIPTION:{time_str}
+END:VEVENT
+END:VCALENDAR"""
 
 # --- 1. PAGE CONFIG & STYLING ---
 st.set_page_config(page_title="PCA Smart Vault", page_icon="🌳", layout="wide")
@@ -46,19 +66,20 @@ else:
         st.audio(audio_data['bytes'])
         
         with st.spinner("Gemini is analyzing the audio..."):
-            # Create temp file
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+            # Create temp file with .webm to match typical browser mic output
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as tmp:
                 tmp.write(audio_data['bytes'])
                 tmp_path = tmp.name
             
             try:
                 # 5. UPLOAD & WAIT FOR PROCESSING
-                audio_file = genai.upload_file(path=tmp_path)
+                audio_file = genai.upload_file(path=tmp_path, mime_type="audio/webm")
                 
                 # Loop until file is ready (prevents 'NotFound' errors)
                 while audio_file.state.name == "PROCESSING":
                     time.sleep(1)
                     audio_file = genai.get_file(audio_file.name)
+
 
                 model = genai.GenerativeModel('gemini-1.5-flash-latest')
                 
@@ -91,16 +112,23 @@ else:
 
                 with col2:
                     st.markdown('<div class="report-card"><div class="card-title">📅 Calendar</div>', unsafe_allow_html=True)
-                    for event in data.get('events', []):
+                    for i, event in enumerate(data.get('events', [])):
                         e_str = f"{event['title']} at {event['time']}"
                         url = f"shortcuts://run-shortcut?name=AddCalendar&input=text&text={urllib.parse.quote(e_str)}"
-                        st.markdown(f'<div class="event-box"><span>{event["title"]}<br><small>{event["time"]}</small></span><a href="{url}" class="shortcut-btn">➕</a></div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="event-box"><span>{event["title"]}<br><small>{event["time"]}</small></span><a href="{url}" class="shortcut-btn" title="iOS Native">🍎 iOS</a></div>', unsafe_allow_html=True)
+                        
+                        # Cross-platform fallback ICS
+                        ics_data = create_ics(event['title'], event['time'])
+                        st.download_button(label="📥 Download .ics (Android/PC)", data=ics_data, file_name=f"event_{i}.ics", mime="text/calendar", key=f"dl_ics_{i}")
                     st.markdown('</div>', unsafe_allow_html=True)
 
             except Exception as e:
-                st.error(f"Error: {e}")
-                st.write("Raw Output from AI:")
-                st.write(response.text)
+                st.error(f"Error Processing Request: {e}")
+                st.info("Ensure your API Key is correct and the audio recording was successful.")
+                try:
+                    st.write("Raw Output from AI:", response.text)
+                except:
+                    pass
             
             finally:
                 # Clean up local file
