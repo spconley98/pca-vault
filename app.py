@@ -169,6 +169,12 @@ with st.sidebar:
     API_KEY = st.text_input("Gemini API Key", type="password")
     if API_KEY:
         genai.configure(api_key=API_KEY)
+        with st.expander("🛠️ Debug: Available Models"):
+            try:
+                models = [m.name for m in genai.list_models() if "generateContent" in m.supported_generation_methods]
+                st.write(models)
+            except Exception as e:
+                st.write("Error fetching models.")
 
 # --- 3. DYNAMIC HERO HEADER ---
 if os.path.exists("orchard.jpg"):
@@ -218,9 +224,10 @@ else:
                 if audio_file.state.name == "FAILED":
                     raise ValueError("Google Gemini failed to process the audio file. Please try recording again.")
 
-                # Force Structured Output to prevent parsing hallucinations
-                model = genai.GenerativeModel('gemini-1.5-flash', generation_config={"response_mime_type": "application/json"})
+                # Standard Model call without the explicit JSON config, as some API keys lack feature support
+                model = genai.GenerativeModel('gemini-1.5-pro-latest')
                 
+                # We enforce the JSON parsing structure natively within the string prompt
                 prompt = """
                 You are a PCA/CCA assistant. Analyze this recording and return ONLY a JSON object:
                 {
@@ -228,6 +235,7 @@ else:
                   "tasks": ["Task 1", "Task 2"],
                   "events": [{"title": "Event Name", "time": "Date/Time"}]
                 }
+                DO NOT INCLUDE MARKDOWN TICKS OR EXTRA TEXT. JUST RETURN THE RAW JSON.
                 """
                 
                 response = model.generate_content([prompt, audio_file])
