@@ -2,3 +2,4 @@ streamlit
 streamlit-audiorecorder
 google-generativeai
 pydub
+audioop-lts
