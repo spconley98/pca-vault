@@ -182,8 +182,8 @@ else:
                     time.sleep(1)
                     audio_file = genai.get_file(audio_file.name)
                 
-                # FIX: Using 'gemini-1.5-pro-latest' as it has wider availability for some keys
-                model = genai.GenerativeModel('gemini-1.5-pro-latest')
+                # FIX: Using 'gemini-2.5-flash' based on the API key's available models
+                model = genai.GenerativeModel('gemini-2.5-flash')
                 
                 prompt = """
                 You are a senior PCA/CCA assistant. Analyze this recording and return ONLY a JSON object:
