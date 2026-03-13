@@ -12,15 +12,12 @@ import uuid
 
 # --- 1. UTILITY FUNCTIONS ---
 def img_to_base64(image_path):
-    """Converts local image to base64 for the Hero Header background."""
     with open(image_path, "rb") as img_file:
         return base64.b64encode(img_file.read()).decode()
 
 def create_ics(title, time_str, summary=""):
-    """Generates a cross-platform calendar file (.ics)."""
     now = datetime.datetime.now()
     dtstamp = now.strftime('%Y%m%dT%H%M%SZ')
-    # Defaulting to tomorrow at 10 AM for the event start
     dtstart = (now + datetime.timedelta(days=1)).strftime('%Y%m%dT100000Z')
     dtend = (now + datetime.timedelta(days=1, hours=1)).strftime('%Y%m%dT110000Z')
     
@@ -38,7 +35,8 @@ END:VEVENT
 END:VCALENDAR"""
 
 # --- 2. PAGE CONFIG & STYLING ---
-st.set_page_config(page_title="PCA Smart Vault", page_icon="🌳", layout="centered")
+# Shifting from "centered" to "wide" for the Otter 3-pane architecture
+st.set_page_config(page_title="PCA Smart Vault", page_icon="🌳", layout="wide")
 
 st.markdown("""
 <style>
@@ -46,196 +44,229 @@ st.markdown("""
     
     html, body, [class*="css"]  {
         font-family: 'Outfit', sans-serif;
-        background-color: #f7f9fc;
+        background-color: #ffffff;
     }
     
-    .hero-container {
-        position: relative;
-        width: 100%;
-        height: 250px;
-        border-radius: 20px;
-        overflow: hidden;
+    /* Otter-like clean layout adjustments */
+    .stApp {
+        background-color: #ffffff;
+    }
+    
+    .main-header {
+        font-size: 2.2rem;
+        font-weight: 600;
+        color: #1e1e1e;
+        margin-bottom: 5px;
+    }
+    
+    .meta-text {
+        color: #666;
+        font-size: 0.9rem;
         margin-bottom: 30px;
-        box-shadow: 0 12px 24px rgba(0,0,0,0.1);
+        display: flex;
+        gap: 15px;
+        align-items: center;
+    }
+    
+    .section-header {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #333;
+        margin-top: 30px;
+        margin-bottom: 15px;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 10px;
         display: flex;
         align-items: center;
-        justify-content: center;
-        background-size: cover;
-        background-position: center;
-    }
-    
-    .hero-overlay {
-        position: absolute;
-        top: 0; left: 0; width: 100%; height: 100%;
-        background: linear-gradient(135deg, rgba(27,94,32,0.85) 0%, rgba(0,0,0,0.3) 100%);
-        z-index: 1;
-    }
-    
-    .hero-content {
-        position: relative;
-        z-index: 2;
-        text-align: center;
-        color: white;
-    }
-    
-    .hero-title { font-size: 3rem; font-weight: 700; margin: 0; }
-    .hero-subtitle { font-size: 1.1rem; font-weight: 300; opacity: 0.9; }
-
-    .report-card { 
-        background-color: #ffffff; 
-        border-radius: 20px; 
-        padding: 25px; 
-        margin-bottom: 20px; 
-        border: 1px solid rgba(0,0,0,0.05); 
-        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-    }
-    
-    .card-title { font-size: 1.3em; font-weight: 600; color: #1b5e20; margin-bottom: 15px; }
-    
-    .task-box { 
-        background-color: #f1f8e9; 
-        padding: 15px; 
-        border-radius: 12px; 
-        margin-bottom: 10px; 
-        display: flex; 
-        justify-content: space-between; 
-        align-items: center; 
-        border-left: 5px solid #4caf50; 
+        gap: 8px;
     }
 
-    .event-box { 
-        background-color: #e3f2fd; 
-        padding: 15px; 
-        border-radius: 12px; 
-        margin-bottom: 10px; 
-        display: flex; 
-        justify-content: space-between; 
-        align-items: center; 
-        border-left: 5px solid #1e88e5; 
+    .overview-text {
+        font-size: 1.05rem;
+        line-height: 1.6;
+        color: #444;
     }
     
-    .shortcut-btn { 
-        background-color: white; 
-        padding: 6px 12px; 
-        border-radius: 15px; 
-        text-decoration: none !important; 
-        color: #333 !important; 
-        font-size: 0.8em; 
-        font-weight: 600; 
-        border: 1px solid #ddd;
+    .outline-list {
+        padding-left: 20px;
+    }
+    
+    .outline-list li {
+        margin-bottom: 10px;
+        color: #333;
+        font-size: 1.05rem;
+    }
+
+    .ai-chat-header {
+        font-weight: 600;
+        margin-bottom: 20px;
+        font-size: 1.1rem;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 10px;
+    }
+    
+    /* Sidebar styling to mimic navigation */
+    .css-1544g2n {
+        padding-top: 2rem;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. SIDEBAR ---
+# --- 3. SECRETS & SIDEBAR ---
+# Silently load the API Key from Streamlit Secrets or local Environment Variables
+API_KEY = None
+try:
+    API_KEY = st.secrets.get("GEMINI_API_KEY")
+except:
+    pass
+
+if not API_KEY:
+    API_KEY = os.environ.get("GEMINI_API_KEY")
+
 with st.sidebar:
-    st.header("Settings")
-    API_KEY = st.text_input("Gemini API Key", type="password")
+    st.markdown("<h2 style='font-weight: 700; color: #1b5e20;'>🌳 PCA Vault</h2>", unsafe_allow_html=True)
+    st.markdown("---")
+    
+    # Navigation style to mimic Otter
+    st.button("🏠 Home", use_container_width=True)
+    st.button("🤖 AI Chat", use_container_width=True)
+    st.button("🔗 Integrations", use_container_width=True)
+    
+    st.markdown("---")
+    st.markdown("**📁 Folders**")
+    st.button("🌱 Spring Scouting", use_container_width=True)
+    st.button("💧 Nutrient Reports", use_container_width=True)
+
+    # Fallback to manual input if no secret is found
+    if not API_KEY:
+        st.warning("Key not found in `.streamlit/secrets.toml`.")
+        API_KEY = st.text_input("Gemini API Key", type="password")
+    
     if API_KEY:
         genai.configure(api_key=API_KEY)
-        with st.expander("🛠️ Debug: Available Models"):
-            try:
-                models = [m.name for m in genai.list_models() if "generateContent" in m.supported_generation_methods]
-                st.write(models)
-            except Exception as e:
-                st.write("Error fetching models.")
 
-# --- 4. HERO HEADER ---
-if os.path.exists("orchard.jpg"):
-    img_b64 = img_to_base64("orchard.jpg")
-    st.markdown(f"""
-    <div class="hero-container" style="background-image: url('data:image/jpeg;base64,{img_b64}');">
-        <div class="hero-overlay"></div>
-        <div class="hero-content">
-            <h1 class="hero-title">PCA Smart Vault</h1>
-            <p class="hero-subtitle">Woodland Agricultural Intelligence</p>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-else:
-    st.markdown("<h1 style='text-align: center; color: #1b5e20;'>🌳 PCA Smart Vault</h1>", unsafe_allow_html=True)
-
-# Initialize Session State for data persistence
+# Initialize Session States
 if 'dashboard_data' not in st.session_state:
     st.session_state.dashboard_data = None
+if 'chat_history' not in st.session_state:
+    st.session_state.chat_history = [{"role": "assistant", "content": "Ask me anything about your field notes..."}]
 
-# --- 5. THE RECORDER ---
-if not API_KEY:
-    st.warning("Please enter your Gemini API Key in the sidebar to start.")
+# --- 4. MAIN LAYOUT (Wide Split) ---
+# If no data yet, show a clean, centered recorder interface
+if not st.session_state.dashboard_data:
+    st.markdown("<div style='max-width: 600px; margin: 10vh auto; text-align: center;'>", unsafe_allow_html=True)
+    st.markdown("<h1 class='main-header'>Record New Field Note</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #666; margin-bottom: 40px;'>Capture your scouting observations for automated synthesis.</p>", unsafe_allow_html=True)
+    
+    if not API_KEY:
+        st.error("Please configure your Gemini API Key via Streamlit Secrets or the sidebar.")
+    else:
+        audio_data = mic_recorder(start_prompt="⏺️ Start Recording", stop_prompt="⏹️ Analyze Audio", key='recorder')
+
+        if audio_data:
+            with st.spinner("Synthesizing field data..."):
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as tmp:
+                    tmp.write(audio_data['bytes'])
+                    tmp_path = tmp.name
+                
+                try:
+                    audio_file = genai.upload_file(path=tmp_path, mime_type="audio/webm")
+                    
+                    while audio_file.state.name == "PROCESSING":
+                        time.sleep(1)
+                        audio_file = genai.get_file(audio_file.name)
+                    
+                    # Target advanced model
+                    model = genai.GenerativeModel('gemini-2.5-flash')
+                    
+                    # Upgraded Prompt to align with the Otter.ai data hierarchy
+                    prompt = """
+                    You are a senior PCA/CCA assistant. Analyze this recording and return ONLY a JSON object:
+                    {
+                      "title": "A short, professional title for the recording",
+                      "overview": "A flowing paragraph summarizing the core discussion, crop status, and any observations.",
+                      "action_items": ["Specific action 1", "Specific action 2"],
+                      "outline": [
+                         {"heading": "Main point 1", "details": ["Point 1 detail A", "Point 1 detail B"]},
+                         {"heading": "Main point 2", "details": ["Point 2 detail A"]}
+                      ]
+                    }
+                    """
+                    
+                    response = model.generate_content([prompt, audio_file])
+                    clean_json = response.text.replace("```json", "").replace("```", "").strip()
+                    st.session_state.dashboard_data = json.loads(clean_json)
+                    st.rerun()
+
+                except Exception as e:
+                    st.error(f"Analysis Error: {e}")
+                finally:
+                    if os.path.exists(tmp_path):
+                        os.remove(tmp_path)
+    st.markdown("</div>", unsafe_allow_html=True)
+
 else:
-    st.write("Record your scouting notes or field observations:")
-    audio_data = mic_recorder(start_prompt="⏺️ Record Field Note", stop_prompt="⏹️ Analyze & Synthesize", key='recorder')
-
-    if audio_data:
-        st.audio(audio_data['bytes'])
-        
-        with st.spinner("Gemini is analyzing the audio..."):
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as tmp:
-                tmp.write(audio_data['bytes'])
-                tmp_path = tmp.name
-            
-            try:
-                # 5. UPLOAD & WAIT FOR PROCESSING
-                audio_file = genai.upload_file(path=tmp_path, mime_type="audio/webm")
-                
-                while audio_file.state.name == "PROCESSING":
-                    time.sleep(1)
-                    audio_file = genai.get_file(audio_file.name)
-                
-                # FIX: Using 'gemini-2.5-flash' based on the API key's available models
-                model = genai.GenerativeModel('gemini-2.5-flash')
-                
-                prompt = """
-                You are a senior PCA/CCA assistant. Analyze this recording and return ONLY a JSON object:
-                {
-                  "summary": "3-sentence executive summary focusing on crop status and treatment recommendations.",
-                  "tasks": ["Specific action item for grower or crew"],
-                  "events": [{"title": "Event Name", "time": "Date/Time mentioned"}]
-                }
-                """
-                
-                response = model.generate_content([prompt, audio_file])
-                
-                # Cleaning and Parsing
-                clean_json = response.text.replace("```json", "").replace("```", "").strip()
-                st.session_state.dashboard_data = json.loads(clean_json)
-
-            except Exception as e:
-                st.error(f"Analysis Error: {e}")
-                if 'response' in locals():
-                    st.write("AI Debug Info:")
-                    st.code(response.text)
-                else:
-                    st.info("Technical Tip: Ensure your 'google-generativeai' library is updated.")
-            
-            finally:
-                if os.path.exists(tmp_path):
-                    os.remove(tmp_path)
-
-# --- 6. DASHBOARD VIEW ---
-if st.session_state.dashboard_data:
+    # --- OTTER DASHBOARD VIEW ---
+    # Establishing the 75 / 25 column split for the UI
+    col_main, col_chat = st.columns([3, 1], gap="large")
     data = st.session_state.dashboard_data
     
-    st.divider()
-    st.markdown(f'<div class="report-card"><div class="card-title">📝 Summary</div><p>{data.get("summary")}</p></div>', unsafe_allow_html=True)
-
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown('<div class="report-card"><div class="card-title">✅ Tasks</div>', unsafe_allow_html=True)
-        for task in data.get('tasks', []):
-            url = f"shortcuts://run-shortcut?name=AddReminder&input=text&text={urllib.parse.quote(str(task))}"
-            st.markdown(f'<div class="task-box"><span>{task}</span><a href="{url}" class="shortcut-btn">➕</a></div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with col2:
-        st.markdown('<div class="report-card"><div class="card-title">📅 Calendar</div>', unsafe_allow_html=True)
-        for i, event in enumerate(data.get('events', [])):
-            e_str = f"{event['title']} at {event['time']}"
-            url = f"shortcuts://run-shortcut?name=AddCalendar&input=text&text={urllib.parse.quote(e_str)}"
-            ics_data = create_ics(event['title'], event['time'], data.get("summary", ""))
+    with col_main:
+        # Title & Context Meta
+        st.markdown(f"<h1 class='main-header'>{data.get('title', 'Field Observation')}</h1>", unsafe_allow_html=True)
+        date_str = datetime.datetime.now().strftime("%b %d at %I:%M %p")
+        st.markdown(f"""
+        <div class='meta-text'>
+            <span>👤 Sean C</span>
+            <span>📅 {date_str}</span>
+            <span>⏱️ Synthesized</span>
+            <span style='color: #1b5e20; cursor: pointer;'>📋 Copy Summary</span>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        tab_summary, tab_transcript = st.tabs(["Summary", "Transcript"])
+        
+        with tab_summary:
+            # Overview block
+            st.markdown("<div class='section-header'>📝 Overview</div>", unsafe_allow_html=True)
+            st.markdown(f"<p class='overview-text'>{data.get('overview', '')}</p>", unsafe_allow_html=True)
             
-            st.markdown(f'<div class="event-box"><span>{event["title"]}<br><small>{event["time"]}</small></span><a href="{url}" class="shortcut-btn" style="margin-right:5px;">🍎 iOS</a></div>', unsafe_allow_html=True)
-            st.download_button(label="📥 .ics (Android/PC)", data=ics_data, file_name=f"event_{i}.ics", mime="text/calendar", key=f"dl_{uuid.uuid4()}")
-        st.markdown('</div>', unsafe_allow_html=True)
+            # Action Items mapped as native Checkboxes
+            st.markdown("<div class='section-header'>☑️ Action Items</div>", unsafe_allow_html=True)
+            for i, task in enumerate(data.get('action_items', [])):
+                st.checkbox(task, key=f"task_{i}")
+                
+            # Deep Outline mapping
+            st.markdown("<div class='section-header'>📋 Outline</div>", unsafe_allow_html=True)
+            for item in data.get('outline', []):
+                st.markdown(f"**{item.get('heading', '')}**")
+                for detail in item.get('details', []):
+                    st.markdown(f"-<span style='margin-left:5px; color:#444;'>{detail}</span>", unsafe_allow_html=True)
+                st.markdown("<br>", unsafe_allow_html=True)
+        
+        with tab_transcript:
+            st.info("Transcript view is currently hidden. Configure the LLM to output word-for-word transcript blocks to populate this tab.")
 
-st.markdown("<p style='text-align: center; font-size: 0.8em; color: #a0aabf; margin-top: 50px;'>Woodland PCA Dashboard • Powered by Gemini 1.5 Flash</p>", unsafe_allow_html=True)
+    with col_chat:
+        st.markdown("<div class='ai-chat-header'>💬 AI Chat</div>", unsafe_allow_html=True)
+        
+        # Display chat history iteratively
+        chat_container = st.container(height=500)
+        with chat_container:
+            for message in st.session_state.chat_history:
+                with st.chat_message(message["role"]):
+                    st.write(message["content"])
+        
+        # Quick interactive demo prompts under the chat
+        st.button("What treatments run best here?", key="q1", use_container_width=True)
+        st.button("Extract all compound names.", key="q2", use_container_width=True)
+        
+        # Chat text input behavior
+        if prompt := st.chat_input("Ask PCA assistant about your notes..."):
+            st.session_state.chat_history.append({"role": "user", "content": prompt})
+            with chat_container:
+                with st.chat_message("user"):
+                    st.write(prompt)
+                with st.chat_message("assistant"):
+                    st.write("This is a simulated AI response. Hook this up to `model.generate_content()` to query against the dashboard context!")
+            st.session_state.chat_history.append({"role": "assistant", "content": "This is a simulated AI response. Hook this up to `model.generate_content()` to query against the dashboard context!"})
