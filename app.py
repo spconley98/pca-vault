@@ -4,158 +4,173 @@ import google.generativeai as genai
 import urllib.parse
 import tempfile
 import os
-import json # New tool for processing structured data
+import json
 
-st.set_page_config(page_title="PCA Smart Vault", page_icon="🌳", layout="wide") # Use wide layout for dashboard feel
+# --- 1. PAGE CONFIG & STYLING ---
+st.set_page_config(page_title="PCA Smart Vault", page_icon="🌳", layout="wide")
 
-# --- 1. SETUP ---
-# You'll enter this key once the app is running
-API_KEY = st.sidebar.text_input("Gemini API Key", type="password")
-if API_KEY:
-    genai.configure(api_key=API_KEY)
-
-# --- 2. MAIN HEADER (WITH ALMOND ORCHARD IMAGE) ---
-# Add the high-definition orchard image
-st.markdown("<h1 style='text-align: center; color: white; background-color: rgba(0,0,0,0.5); padding: 10px; border-radius: 10px;'>🌳 PCA Smart Vault Dashboard</h1>", unsafe_allow_html=True)
-st.image("path/to/your/almond_orchard.jpg", caption="Your Almond Orchard Analysis Hub", use_column_width=True) # <<< ADD YOUR ORCHARD PHOTO PATH HERE
-
-# Introduce custom CSS to style the conversation 'cards'
+# This CSS makes the app look like a professional dashboard instead of a basic website
 st.markdown("""
 <style>
+    .main {
+        background-color: #f8f9fa;
+    }
+    .stButton>button {
+        width: 100%;
+        border-radius: 20px;
+        height: 3em;
+        background-color: #2e7d32;
+        color: white;
+        font-weight: bold;
+    }
     .report-card {
-        background-color: #f0f2f6;
-        border-radius: 10px;
-        padding: 20px;
+        background-color: white;
+        border-radius: 15px;
+        padding: 25px;
         margin-bottom: 20px;
-        box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+        border: 1px solid #e0e0e0;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
     }
     .card-title {
-        font-size: 1.5em;
-        font-weight: bold;
-        color: #1f77b4;
+        font-size: 1.3em;
+        font-weight: 700;
+        color: #1b5e20;
+        margin-bottom: 15px;
         display: flex;
         align-items: center;
         gap: 10px;
     }
-    .task-item, .event-item {
-        margin-left: 20px;
-        font-weight: 500;
+    .task-box {
+        background-color: #e8f5e9;
+        padding: 12px;
+        border-radius: 10px;
+        margin-bottom: 10px;
         display: flex;
         justify-content: space-between;
         align-items: center;
+        border-left: 5px solid #2e7d32;
     }
-    .shortcut-icon {
-        color: #1f77b4;
+    .event-box {
+        background-color: #e3f2fd;
+        padding: 12px;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-left: 5px solid #1565c0;
+    }
+    .shortcut-btn {
+        background-color: white;
+        padding: 5px 12px;
+        border-radius: 15px;
         text-decoration: none;
-        margin-left: 10px;
-        font-size: 1.2em;
-    }
-    .audio-player {
-        margin-top: 20px;
-        width: 100%;
+        color: #333;
+        font-size: 0.8em;
+        font-weight: bold;
+        border: 1px solid #ccc;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. THE RECORDER ---
-st.write("Start a new call or scouting note:")
-audio = audiorecorder("⏺️ Start Call Recording", "Stop & Generate Insights", key="recorder_main")
+# --- 2. SIDEBAR SETUP ---
+with st.sidebar:
+    st.header("Settings")
+    API_KEY = st.text_input("Gemini API Key", type="password")
+    st.info("Your keys are never stored on the server. They stay in your browser session.")
+
+if not API_KEY:
+    st.warning("Please enter your Gemini API Key in the sidebar to begin.")
+    st.stop()
+
+genai.configure(api_key=API_KEY)
+
+# --- 3. THE HEADER & ORCHARD VIEW ---
+# This displays your HD photo as the dashboard hero image
+if os.path.exists("orchard.jpg"):
+    st.image("orchard.jpg", use_container_width=True)
+else:
+    st.info("Add a photo named 'orchard.jpg' to your folder to see your custom header.")
+
+st.markdown("<h1 style='text-align: center;'>🌳 PCA Smart Vault</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #666;'>Automated Agronomy Intelligence</p>", unsafe_allow_html=True)
+
+# --- 4. THE RECORDER INTERFACE ---
+col_pad1, col_main, col_pad2 = st.columns([1, 2, 1])
+
+with col_main:
+    audio = audiorecorder("⏺️ Start New Recording", "⏹️ Stop & Analyze")
 
 if len(audio) > 0:
-    # Display the player immediately
-    st.markdown("<div class='audio-player'>", unsafe_allow_html=True)
     st.audio(audio.export().read())
-    st.markdown("</div>", unsafe_allow_html=True)
     
-    with st.spinner("Analyzing call and generating custom insights..."):
-        # Save audio to a temp file
+    with st.spinner("Processing conversation..."):
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
             audio.export(tmp.name, format="mp3")
             
-            # Send to Gemini
+            # 5. UPLOAD & AI BRAIN
             audio_file = genai.upload_file(path=tmp.name)
             model = genai.GenerativeModel('gemini-1.5-flash')
             
-            # 4. THE PROMPT (Revised for structured JSON output)
-            # This is key for the Otter look. We demand JSON.
             prompt = """
-            Analyze this phone conversation and output a structured JSON object with the following schema:
-            
+            Listen to this recording. You are an expert PCA/CCA assistant. 
+            Output ONLY a JSON object with this exact structure:
             {
-              "summary": "A 3-sentence summary of the conversation.",
-              "tasks": [
-                {
-                  "description": "Short description of the task.",
-                  "shortcut_url": "Encoded URL for the Apple Shortcut: shortcuts://run-shortcut?name=AddReminder&input=text&text=[encoded_description]"
-                },
-                ...
-              ],
-              "events": [
-                {
-                  "title": "Title of the event.",
-                  "date": "Date and Time of the event.",
-                  "shortcut_url": "Encoded URL for the Apple Shortcut: shortcuts://run-shortcut?name=AddCalendar&input=text&text=[encoded_title] at [encoded_date]"
-                },
-                ...
-              ]
+              "summary": "3-4 sentence high-level summary",
+              "tasks": ["Task description 1", "Task description 2"],
+              "events": [{"title": "Event Name", "time": "Time/Date"}]
             }
             """
             
             response = model.generate_content([prompt, audio_file])
-            raw_text = response.text
-            st.markdown("### Processed Insights (Draft)")
-            st.markdown(raw_text) # Show raw text for validation
+            
+            # Clean the JSON output (removes markdown backticks if Gemini adds them)
+            clean_json = response.text.replace("```json", "").replace("```", "").strip()
+            data = json.loads(clean_json)
 
-            try:
-                # Parse the JSON output
-                # Use json.loads to clean up common formatting issues from Gemini
-                data = json.loads(raw_text.strip('` \n'))
-                
-                # --- 5. VISUALIZING THE "CONVERSATION DASHBOARD" ---
-                st.markdown("<h2 style='text-align: center; color: #1f77b4;'>Conversation Dashboard</h2>", unsafe_allow_html=True)
-                
-                # Card 1: Summary (Wide card)
-                st.markdown(f"""
-                <div class='report-card'>
-                    <div class='card-title'>📝 Conversation Summary</div>
-                    <p>{data['summary']}</p>
-                </div>
-                """, unsafe_allow_html=True)
+            # --- 6. THE DASHBOARD VIEW ---
+            st.divider()
+            
+            # Card 1: Executive Summary
+            st.markdown(f"""
+            <div class="report-card">
+                <div class="card-title">📝 Executive Summary</div>
+                <p style="color: #444; line-height: 1.6;">{data['summary']}</p>
+            </div>
+            """, unsafe_allow_html=True)
 
-                # Card 2 & 3: Tasks and Events (Two-column layout)
-                col1, col2 = st.columns(2)
-                
-                with col1:
+            # Card 2 & 3: Actionable Items
+            col_left, col_right = st.columns(2)
+
+            with col_left:
+                st.markdown('<div class="report-card"><div class="card-title">✅ Tasks for Reminders</div>', unsafe_allow_html=True)
+                for task in data['tasks']:
+                    encoded_task = urllib.parse.quote(task)
+                    url = f"shortcuts://run-shortcut?name=AddReminder&input=text&text={encoded_task}"
                     st.markdown(f"""
-                    <div class='report-card'>
-                        <div class='card-title'>🗓️ Key Action Items</div>
+                    <div class="task-box">
+                        <span>{task}</span>
+                        <a href="{url}" class="shortcut-btn">➕ Add</a>
                     </div>
                     """, unsafe_allow_html=True)
-                    if not data['tasks']:
-                        st.markdown("<p>No tasks identified.</p>", unsafe_allow_html=True)
-                    for task in data['tasks']:
-                        st.markdown(f"""
-                        <div class='task-item'>
-                            <span>• {task['description']}</span>
-                            <a href='{task['shortcut_url']}' class='shortcut-icon' target='_self'>🗓️+</a>
-                        </div>
-                        """, unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
 
-                with col2:
+            with col_right:
+                st.markdown('<div class="report-card"><div class="card-title">📅 Calendar Events</div>', unsafe_allow_html=True)
+                for event in data['events']:
+                    event_str = f"{event['title']} at {event['time']}"
+                    encoded_event = urllib.parse.quote(event_str)
+                    url = f"shortcuts://run-shortcut?name=AddCalendar&input=text&text={encoded_event}"
                     st.markdown(f"""
-                    <div class='report-card'>
-                        <div class='card-title'>📅 Upcoming Events</div>
+                    <div class="event-box">
+                        <span>{event['title']}<br><small>{event['time']}</small></span>
+                        <a href="{url}" class="shortcut-btn">➕ Add</a>
                     </div>
                     """, unsafe_allow_html=True)
-                    if not data['events']:
-                        st.markdown("<p>No events identified.</p>", unsafe_allow_html=True)
-                    for event in data['events']:
-                        st.markdown(f"""
-                        <div class='event-item'>
-                            <span>• {event['title']} ({event['date']})</span>
-                            <a href='{event['shortcut_url']}' class='shortcut-icon' target='_self'>📅+</a>
-                        </div>
-                        """, unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
 
-            except Exception as e:
-                st.error(f"Failed to process conversation dashboard: {e}. Raw analysis is above.")
+    # Cleanup temp audio
+    os.remove(tmp.name)
+
+# --- 7. FOOTER ---
+st.markdown("<p style='text-align: center; font-size: 0.8em; color: #999; margin-top: 50px;'>Powered by Gemini 1.5 Flash • Optimized for Northern California Agriculture</p>", unsafe_allow_html=True)
