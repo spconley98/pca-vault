@@ -1,5 +1,4 @@
 streamlit
-streamlit-audiorecorder
+streamlit-mic-recorder
 google-generativeai
 pydub
-audioop-lts
