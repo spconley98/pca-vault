@@ -7,6 +7,12 @@ import os
 import json
 import time
 import datetime
+import base64
+
+def img_to_base64(image_path):
+    with open(image_path, "rb") as img_file:
+        return base64.b64encode(img_file.read()).decode()
+import datetime
 
 def create_ics(title, time_str):
     now = datetime.datetime.now()
@@ -28,16 +34,132 @@ END:VEVENT
 END:VCALENDAR"""
 
 # --- 1. PAGE CONFIG & STYLING ---
-st.set_page_config(page_title="PCA Smart Vault", page_icon="🌳", layout="wide")
+st.set_page_config(page_title="PCA Smart Vault", page_icon="🌳", layout="centered")
 
-# Custom CSS for the "Otter Dashboard" look
+# Custom CSS for the "Vibe Coding" Premium Dashboard look
 st.markdown("""
 <style>
-    .report-card { background-color: white; border-radius: 15px; padding: 25px; margin-bottom: 20px; border: 1px solid #e0e0e0; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-    .card-title { font-size: 1.3em; font-weight: 700; color: #1b5e20; margin-bottom: 15px; }
-    .task-box { background-color: #e8f5e9; padding: 12px; border-radius: 10px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid #2e7d32; }
-    .event-box { background-color: #e3f2fd; padding: 12px; border-radius: 10px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid #1565c0; }
-    .shortcut-btn { background-color: white; padding: 5px 12px; border-radius: 15px; text-decoration: none; color: #333; font-size: 0.8em; font-weight: bold; border: 1px solid #ccc; }
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
+    
+    html, body, [class*="css"]  {
+        font-family: 'Outfit', sans-serif;
+        background-color: #f7f9fc;
+    }
+    
+    .hero-container {
+        position: relative;
+        width: 100%;
+        height: 300px;
+        border-radius: 20px;
+        overflow: hidden;
+        margin-bottom: 30px;
+        box-shadow: 0 12px 24px rgba(0,0,0,0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-position: center;
+        background-size: cover;
+    }
+    
+    .hero-overlay {
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: linear-gradient(135deg, rgba(27,94,32,0.8) 0%, rgba(0,0,0,0.2) 100%);
+        z-index: 1;
+    }
+    
+    .hero-content {
+        position: relative;
+        z-index: 2;
+        text-align: center;
+        color: white;
+        text-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    
+    .hero-title {
+        font-size: 3.5rem;
+        font-weight: 700;
+        margin: 0;
+        letter-spacing: -1px;
+    }
+    
+    .hero-subtitle {
+        font-size: 1.2rem;
+        font-weight: 300;
+        opacity: 0.9;
+        margin-top: 5px;
+    }
+
+    .report-card { 
+        background-color: #ffffff; 
+        border-radius: 20px; 
+        padding: 30px; 
+        margin-bottom: 25px; 
+        border: 1px solid rgba(0,0,0,0.04); 
+        box-shadow: 0 8px 32px rgba(0,0,0,0.06); 
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .card-title { 
+        font-size: 1.4em; 
+        font-weight: 600; 
+        color: #1b5e20; 
+        margin-bottom: 20px; 
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .task-box { 
+        background-color: #f1f8e9; 
+        padding: 16px 20px; 
+        border-radius: 12px; 
+        margin-bottom: 12px; 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        border-left: 5px solid #4caf50; 
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .task-box:hover, .event-box:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+    }
+
+    .event-box { 
+        background-color: #e3f2fd; 
+        padding: 16px 20px; 
+        border-radius: 12px; 
+        margin-bottom: 12px; 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        border-left: 5px solid #1e88e5; 
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .shortcut-btn { 
+        background-color: white; 
+        padding: 8px 16px; 
+        border-radius: 20px; 
+        text-decoration: none !important; 
+        color: #333 !important; 
+        font-size: 0.85em; 
+        font-weight: 600; 
+        border: 1px solid #e0e0e0; 
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        transition: all 0.2s ease;
+        white-space: nowrap;
+    }
+    
+    .shortcut-btn:hover {
+        background-color: #f5f5f5;
+        border-color: #ccc;
+    }
+    
+    p { line-height: 1.6; color: #444; font-size: 1.05rem; }
+    
 </style>
 """, unsafe_allow_html=True)
 
@@ -48,19 +170,28 @@ with st.sidebar:
     if API_KEY:
         genai.configure(api_key=API_KEY)
 
-# --- 3. HEADER ---
-# Displays your HD orchard photo
+# --- 3. DYNAMIC HERO HEADER ---
 if os.path.exists("orchard.jpg"):
-    st.image("orchard.jpg", use_container_width=True)
-
-st.markdown("<h1 style='text-align: center;'>🌳 PCA Smart Vault</h1>", unsafe_allow_html=True)
+    img_b64 = img_to_base64("orchard.jpg")
+    hero_html = f"""
+    <div class="hero-container" style="background-image: url('data:image/jpeg;base64,{img_b64}');">
+        <div class="hero-overlay"></div>
+        <div class="hero-content">
+            <h1 class="hero-title">PCA Smart Vault</h1>
+            <p class="hero-subtitle">Woodland Agricultural Intelligence</p>
+        </div>
+    </div>
+    """
+    st.markdown(hero_html, unsafe_allow_html=True)
+else:
+    st.markdown("<h1 class='hero-title' style='text-align: center; color: #1b5e20; padding: 40px 0;'>🌳 PCA Smart Vault</h1>", unsafe_allow_html=True)
 
 # --- 4. THE RECORDER ---
 if not API_KEY:
     st.warning("Please enter your Gemini API Key in the sidebar to start.")
 else:
-    st.write("Click the mic to start/stop recording your call or scouting note:")
-    audio_data = mic_recorder(start_prompt="⏺️ Record Note", stop_prompt="⏹️ Stop & Analyze", key='recorder')
+    st.markdown("<h3 style='font-weight: 400; color: #555; margin-bottom: 20px;'>Intelligence Upload</h3>", unsafe_allow_html=True)
+    audio_data = mic_recorder(start_prompt="⏺️ Record Field Note", stop_prompt="⏹️ Analyze & Synthesize", key='recorder')
 
     if audio_data:
         st.audio(audio_data['bytes'])
@@ -151,4 +282,4 @@ else:
                 if os.path.exists(tmp_path):
                     os.remove(tmp_path)
 
-st.markdown("<p style='text-align: center; font-size: 0.8em; color: #999; margin-top: 50px;'>Woodland PCA Intelligence Dashboard</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; font-size: 0.85em; color: #a0aabf; margin-top: 60px; font-weight: 300;'>Powered by Gemini 1.5 Flash • Vibe Coded UI</p>", unsafe_allow_html=True)
