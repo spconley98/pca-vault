@@ -133,6 +133,12 @@ with st.sidebar:
     API_KEY = st.text_input("Gemini API Key", type="password")
     if API_KEY:
         genai.configure(api_key=API_KEY)
+        with st.expander("🛠️ Debug: Available Models"):
+            try:
+                models = [m.name for m in genai.list_models() if "generateContent" in m.supported_generation_methods]
+                st.write(models)
+            except Exception as e:
+                st.write("Error fetching models.")
 
 # --- 4. HERO HEADER ---
 if os.path.exists("orchard.jpg"):
@@ -176,8 +182,8 @@ else:
                     time.sleep(1)
                     audio_file = genai.get_file(audio_file.name)
                 
-                # FIX: Use stable model identifier and remove beta JSON config for compatibility
-                model = genai.GenerativeModel('gemini-1.5-flash')
+                # FIX: Using 'gemini-1.5-pro-latest' as it has wider availability for some keys
+                model = genai.GenerativeModel('gemini-1.5-pro-latest')
                 
                 prompt = """
                 You are a senior PCA/CCA assistant. Analyze this recording and return ONLY a JSON object:
