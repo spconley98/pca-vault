@@ -219,7 +219,7 @@ else:
                     raise ValueError("Google Gemini failed to process the audio file. Please try recording again.")
 
                 # Force Structured Output to prevent parsing hallucinations
-                model = genai.GenerativeModel('gemini-1.5-flash-latest', generation_config={"response_mime_type": "application/json"})
+                model = genai.GenerativeModel('gemini-1.5-flash', generation_config={"response_mime_type": "application/json"})
                 
                 prompt = """
                 You are a PCA/CCA assistant. Analyze this recording and return ONLY a JSON object:
