@@ -186,6 +186,10 @@ if os.path.exists("orchard.jpg"):
 else:
     st.markdown("<h1 class='hero-title' style='text-align: center; color: #1b5e20; padding: 40px 0;'>🌳 PCA Smart Vault</h1>", unsafe_allow_html=True)
 
+# --- Initialize Session State ---
+if 'dashboard_data' not in st.session_state:
+    st.session_state.dashboard_data = None
+
 # --- 4. THE RECORDER ---
 if not API_KEY:
     st.warning("Please enter your Gemini API Key in the sidebar to start.")
@@ -231,43 +235,12 @@ else:
                 # Cleaning and strict parsing with fallback
                 try:
                     clean_json = response.text.replace("```json", "").replace("```", "").strip()
-                    data = json.loads(clean_json)
+                    parsed_data = json.loads(clean_json)
+                    st.session_state.dashboard_data = parsed_data # Save to persistent session state
                 except json.JSONDecodeError as e:
                     st.error("⚠️ AI returned malformed data. Attempted parsing failed.")
                     st.write("Raw Transcribed Details (unformatted):", response.text)
                     raise e # Bubble up to the main exception block to stop dashboard rendering
-
-                # --- 6. DASHBOARD VIEW ---
-                st.divider()
-                st.markdown(f'<div class="report-card"><div class="card-title">📝 Summary</div><p>{data.get("summary", "No summary provided.")}</p></div>', unsafe_allow_html=True)
-
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.markdown('<div class="report-card"><div class="card-title">✅ Reminders</div>', unsafe_allow_html=True)
-                    for task in data.get('tasks', []):
-                        # Ensure tasks are strings
-                        task_str = str(task)
-                        url = f"shortcuts://run-shortcut?name=AddReminder&input=text&text={urllib.parse.quote(task_str)}"
-                        st.markdown(f'<div class="task-box"><span>{task}</span><a href="{url}" class="shortcut-btn">➕</a></div>', unsafe_allow_html=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
-
-                with col2:
-                    st.markdown('<div class="report-card"><div class="card-title">📅 Calendar</div>', unsafe_allow_html=True)
-                    events_list = data.get('events', [])
-                    if events_list:
-                        for i, event in enumerate(events_list):
-                            # Ensure event format is a dictionary with title and time
-                            if isinstance(event, dict) and 'title' in event and 'time' in event:
-                                e_str = str(f"{event['title']} at {event['time']}")
-                                url = f"shortcuts://run-shortcut?name=AddCalendar&input=text&text={urllib.parse.quote(e_str)}"
-                                st.markdown(f'<div class="event-box"><span>{event["title"]}<br><small>{event["time"]}</small></span><a href="{url}" class="shortcut-btn" title="iOS Native">🍎 iOS</a></div>', unsafe_allow_html=True)
-                                
-                                # Cross-platform fallback ICS
-                                ics_data = create_ics(event['title'], event['time'])
-                                st.download_button(label="📥 Download .ics (Android/PC)", data=ics_data, file_name=f"event_{i}.ics", mime="text/calendar", key=f"dl_ics_{i}")
-                    else:
-                        st.write("No events scheduled from this recording.")
-                    st.markdown('</div>', unsafe_allow_html=True)
 
             except Exception as e:
                 st.error(f"Error Processing Request: {e}")
@@ -281,5 +254,40 @@ else:
                 # Clean up local file
                 if os.path.exists(tmp_path):
                     os.remove(tmp_path)
+
+# --- 6. DASHBOARD VIEW (Persisted via Session State) ---
+if st.session_state.dashboard_data:
+    data = st.session_state.dashboard_data
+    
+    st.divider()
+    st.markdown(f'<div class="report-card"><div class="card-title">📝 Summary</div><p>{data.get("summary", "No summary provided.")}</p></div>', unsafe_allow_html=True)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown('<div class="report-card"><div class="card-title">✅ Reminders</div>', unsafe_allow_html=True)
+        for task in data.get('tasks', []):
+            # Ensure tasks are strings
+            task_str = str(task)
+            url = f"shortcuts://run-shortcut?name=AddReminder&input=text&text={urllib.parse.quote(task_str)}"
+            st.markdown(f'<div class="task-box"><span>{task}</span><a href="{url}" class="shortcut-btn">➕</a></div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col2:
+        st.markdown('<div class="report-card"><div class="card-title">📅 Calendar</div>', unsafe_allow_html=True)
+        events_list = data.get('events', [])
+        if events_list:
+            for i, event in enumerate(events_list):
+                # Ensure event format is a dictionary with title and time
+                if isinstance(event, dict) and 'title' in event and 'time' in event:
+                    e_str = str(f"{event['title']} at {event['time']}")
+                    url = f"shortcuts://run-shortcut?name=AddCalendar&input=text&text={urllib.parse.quote(e_str)}"
+                    st.markdown(f'<div class="event-box"><span>{event["title"]}<br><small>{event["time"]}</small></span><a href="{url}" class="shortcut-btn" title="iOS Native">🍎 iOS</a></div>', unsafe_allow_html=True)
+                    
+                    # Cross-platform fallback ICS
+                    ics_data = create_ics(event['title'], event['time'])
+                    st.download_button(label="📥 Download .ics (Android/PC)", data=ics_data, file_name=f"event_{i}.ics", mime="text/calendar", key=f"dl_ics_{i}")
+        else:
+            st.write("No events scheduled from this recording.")
+        st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown("<p style='text-align: center; font-size: 0.85em; color: #a0aabf; margin-top: 60px; font-weight: 300;'>Powered by Gemini 1.5 Flash • Vibe Coded UI</p>", unsafe_allow_html=True)
