@@ -79,9 +79,12 @@ else:
                 while audio_file.state.name == "PROCESSING":
                     time.sleep(1)
                     audio_file = genai.get_file(audio_file.name)
+                    
+                if audio_file.state.name == "FAILED":
+                    raise ValueError("Google Gemini failed to process the audio file. Please try recording again.")
 
-
-                model = genai.GenerativeModel('gemini-1.5-flash-latest')
+                # Force Structured Output to prevent parsing hallucinations
+                model = genai.GenerativeModel('gemini-1.5-flash-latest', generation_config={"response_mime_type": "application/json"})
                 
                 prompt = """
                 You are a PCA/CCA assistant. Analyze this recording and return ONLY a JSON object:
@@ -94,32 +97,45 @@ else:
                 
                 response = model.generate_content([prompt, audio_file])
                 
-                # Cleaning and Parsing
-                clean_json = response.text.replace("```json", "").replace("```", "").strip()
-                data = json.loads(clean_json)
+                # Cleaning and strict parsing with fallback
+                try:
+                    clean_json = response.text.replace("```json", "").replace("```", "").strip()
+                    data = json.loads(clean_json)
+                except json.JSONDecodeError as e:
+                    st.error("⚠️ AI returned malformed data. Attempted parsing failed.")
+                    st.write("Raw Transcribed Details (unformatted):", response.text)
+                    raise e # Bubble up to the main exception block to stop dashboard rendering
 
                 # --- 6. DASHBOARD VIEW ---
                 st.divider()
-                st.markdown(f'<div class="report-card"><div class="card-title">📝 Summary</div><p>{data["summary"]}</p></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="report-card"><div class="card-title">📝 Summary</div><p>{data.get("summary", "No summary provided.")}</p></div>', unsafe_allow_html=True)
 
                 col1, col2 = st.columns(2)
                 with col1:
                     st.markdown('<div class="report-card"><div class="card-title">✅ Reminders</div>', unsafe_allow_html=True)
                     for task in data.get('tasks', []):
-                        url = f"shortcuts://run-shortcut?name=AddReminder&input=text&text={urllib.parse.quote(task)}"
+                        # Ensure tasks are strings
+                        task_str = str(task)
+                        url = f"shortcuts://run-shortcut?name=AddReminder&input=text&text={urllib.parse.quote(task_str)}"
                         st.markdown(f'<div class="task-box"><span>{task}</span><a href="{url}" class="shortcut-btn">➕</a></div>', unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
 
                 with col2:
                     st.markdown('<div class="report-card"><div class="card-title">📅 Calendar</div>', unsafe_allow_html=True)
-                    for i, event in enumerate(data.get('events', [])):
-                        e_str = f"{event['title']} at {event['time']}"
-                        url = f"shortcuts://run-shortcut?name=AddCalendar&input=text&text={urllib.parse.quote(e_str)}"
-                        st.markdown(f'<div class="event-box"><span>{event["title"]}<br><small>{event["time"]}</small></span><a href="{url}" class="shortcut-btn" title="iOS Native">🍎 iOS</a></div>', unsafe_allow_html=True)
-                        
-                        # Cross-platform fallback ICS
-                        ics_data = create_ics(event['title'], event['time'])
-                        st.download_button(label="📥 Download .ics (Android/PC)", data=ics_data, file_name=f"event_{i}.ics", mime="text/calendar", key=f"dl_ics_{i}")
+                    events_list = data.get('events', [])
+                    if events_list:
+                        for i, event in enumerate(events_list):
+                            # Ensure event format is a dictionary with title and time
+                            if isinstance(event, dict) and 'title' in event and 'time' in event:
+                                e_str = str(f"{event['title']} at {event['time']}")
+                                url = f"shortcuts://run-shortcut?name=AddCalendar&input=text&text={urllib.parse.quote(e_str)}"
+                                st.markdown(f'<div class="event-box"><span>{event["title"]}<br><small>{event["time"]}</small></span><a href="{url}" class="shortcut-btn" title="iOS Native">🍎 iOS</a></div>', unsafe_allow_html=True)
+                                
+                                # Cross-platform fallback ICS
+                                ics_data = create_ics(event['title'], event['time'])
+                                st.download_button(label="📥 Download .ics (Android/PC)", data=ics_data, file_name=f"event_{i}.ics", mime="text/calendar", key=f"dl_ics_{i}")
+                    else:
+                        st.write("No events scheduled from this recording.")
                     st.markdown('</div>', unsafe_allow_html=True)
 
             except Exception as e:
